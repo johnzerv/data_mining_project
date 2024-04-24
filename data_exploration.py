@@ -1,5 +1,6 @@
 import pandas as pd
 import sys
+import matplotlib.pyplot as plt
 
 df_listings_june23 = pd.read_csv("data/2023/june/listings.csv")
 df_listings_march23 = pd.read_csv("data/2023/march/listings.csv")
@@ -51,3 +52,16 @@ df_june.loc[df_june['minimum_nights'] > 365, 'minimum_nights'] = df_june['minimu
 
 # Export dataframe to .csv file
 # df_june.to_csv('train_2023.csv', index=False)
+
+##### 1.1 #####
+df = df_june['room_type'].value_counts()
+
+# print(df_june['room_type'].value_counts().idxmax()) ----> most commbon room type
+
+# Histogram to show the frequencies
+ax = df.plot(kind='bar', x='room_type', y='count', color='tab:blue', figsize=(8, 6))
+ax.set_xlabel('Room Type')
+ax.set_ylabel('Count')
+ax.set_title('Room Type Distribution')
+ax.tick_params(axis='x', rotation=0)
+plt.show()
