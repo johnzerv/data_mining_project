@@ -116,4 +116,9 @@ months_df = df_23['month'].value_counts()
 # Answered in 1.5
 
 ##### 1.7 #####
+neighbourhoods_roomtype_df = df_23[['neighbourhood_cleansed', 'room_type']]
+grouped_and_evaluated = neighbourhoods_roomtype_df.groupby('neighbourhood_cleansed').value_counts()
+df1 = grouped_and_evaluated.reset_index()
+df2 = df1.drop_duplicates(subset="neighbourhood_cleansed")
 
+print(df2)
