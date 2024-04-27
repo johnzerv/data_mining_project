@@ -117,8 +117,42 @@ months_df = df_23['month'].value_counts()
 
 ##### 1.7 #####
 neighbourhoods_roomtype_df = df_23[['neighbourhood_cleansed', 'room_type']]
-grouped_and_evaluated = neighbourhoods_roomtype_df.groupby('neighbourhood_cleansed').value_counts()
-df1 = grouped_and_evaluated.reset_index()
-df2 = df1.drop_duplicates(subset="neighbourhood_cleansed")
 
-print(df2)
+# Group by neighbourhood and value for each neighbourhood which roomt type has
+grouped_and_evaluated = neighbourhoods_roomtype_df.groupby('neighbourhood_cleansed').value_counts()
+# Reset indexing and drop duplicates for each neighbourhood while keeping the first roomtype
+top_roomtype_df = grouped_and_evaluated.reset_index().drop_duplicates(subset="neighbourhood_cleansed")
+
+# print(top_roomtype_df)
+
+# plot_1_7 = top_roomtype_df.sort_values(by='count', ascending=False).plot(kind='barh', x='neighbourhood_cleansed', y='count', color='skyblue', figsize=(100, 10))
+# plot_1_7.set_xlabel('Count')
+# plot_1_7.set_ylabel('Neighbourhoods')
+# plot_1_7.set_title('Neighbourhoods with roomtype : Entire home/apt')
+# plot_1_7.bar_label(plot_1_7.containers[0], fmt='%d')
+
+# plt.show()
+
+##### 1.8 #####
+roomtype_df = df_23['room_type']
+price_df = df_23['price']
+
+# Fix the price column from string to a float number in which we can apply sum()
+price_df=price_df.str.replace('.00', '').str.replace(',', '').str.replace('$', '').astype(float)
+
+roomtype_prices_df = pd.concat([roomtype_df, price_df], axis='columns')
+
+total_price_roomtypes = roomtype_prices_df.groupby('room_type').sum().reset_index()
+
+# plot_1_8 = total_price_roomtypes.plot(kind='pie', y='price', labels=None, autopct='%.1f%%', startangle=140, figsize=(10, 10))
+# plot_1_8.set_ylabel('')  # Remove y-axis label
+# plot_1_8.set_title('Price Distribution by Room Type')
+# plot_1_8.legend(total_price_roomtypes['room_type'], loc='upper right')  # Add legend with room types
+# plt.show()
+
+##### 1.9 #####
+
+
+
+
+
