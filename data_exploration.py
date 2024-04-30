@@ -2,7 +2,9 @@ import pandas as pd
 import sys
 import matplotlib.pyplot as plt
 import folium
+import wordcloud
 
+# Load csv's and add a column 'month'
 df_listings_june23 = pd.read_csv("data/2023/june/listings.csv")
 df_listings_june23['month'] = 'june'
 df_listings_march23 = pd.read_csv("data/2023/march/listings.csv")
@@ -10,9 +12,11 @@ df_listings_march23['month'] = 'march'
 df_listings_sept23 = pd.read_csv("data/2023/september/listings.csv")
 df_listings_sept23['month'] = 'september'
 
+df_reviews_june23 = pd.read_csv("data/2023/june/reviews.csv")
+df_reviews_march23 = pd.read_csv("data/2023/march/reviews.csv")
+df_reviews_sept23 = pd.read_csv("data/2023/september/reviews.csv")
 
 # Take all columns from official DataFrame that we're interested to
-
 df_june23 = df_listings_june23[[
     'id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
     'latitude', 'longitude', 'last_review', 'instant_bookable', 'host_since', 'host_response_rate',
@@ -35,9 +39,18 @@ df_sept23 = df_listings_sept23[[
     'room_type', 'property_type', 'price', 'availability_365', 'minimum_nights', 'month'
 ]]
 
+df_comments_june23 = df_reviews_june23['comments']
+df_comments_march23 = df_reviews_march23['comments']
+df_comments_sept23 = df_reviews_sept23['comments']
+
+# df_comments_23 = pd.concat([df_comments_june23, df_comments_march23, df_comments_sept23])
 
 # Concatenate DataFrames of each month to one
 df_23 = pd.concat([df_june23, df_march23, df_sept23])
+
+
+
+# Clean the column 'price'
 df_23['price'] = df_23['price'].str.replace('.00', '').str.replace(',', '').str.replace('$', '').astype(float)
 
 # For each column that contains numbers, fill NaN values with mean
@@ -45,6 +58,7 @@ numerical_columns = df_23.select_dtypes(include='number').columns
 for col in numerical_columns:
     mean = df_23[col].mean()
     df_23[col] = df_23[col].fillna(value=mean)
+
 
 
 # TODO: Decide what to do with NaN text
@@ -163,21 +177,56 @@ total_price_roomtypes = roomtype_prices_df.groupby('room_type').sum().reset_inde
 # plt.show()
 
 ##### 1.9 #####
-property_locations = df_23[['latitude', 'longitude', 'room_type']]
-# Take a sample of rows in order to be the map usable 
-sample_of_locations = property_locations.sample(n=500)  
+# property_locations = df_23[['latitude', 'longitude', 'room_type']]
+# # Take a sample of rows in order to be the map usable 
+# sample_of_locations = property_locations.sample(n=500)  
 
-properties_map = folium.Map(location=[sample_of_locations.latitude.mean(), sample_of_locations.longitude.mean()],
-                            zoom_start=14, control_scale=True)
+# properties_map = folium.Map(location=[sample_of_locations.latitude.mean(), sample_of_locations.longitude.mean()],
+#                             zoom_start=14, control_scale=True)
 
-for index, location_info in sample_of_locations.iterrows():
-    folium.Marker([location_info["latitude"], location_info["longitude"]], popup=location_info["room_type"], ).add_to(properties_map)
+# for index, location_info in sample_of_locations.iterrows():
+#     folium.Marker([location_info["latitude"], location_info["longitude"]], popup=location_info["room_type"], ).add_to(properties_map)
 
 
-properties_map.save('properties_map.html')
+# properties_map.save('properties_map.html')
 
 ##### 1.10 ######
 
+# Word Cloud for comments of June-23
+df_sample_comments_june23 = df_comments_june23.sample(200)
+comments_text_june23 = df_sample_comments_june23.str.cat()
+comments_text_june23 = comments_text_june23.replace("<br/>", "")
 
+wcloud_june23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_june23)
 
+# Plot the word cloud
+plt.figure(figsize=(10, 5))
+plt.imshow(wcloud_june23)
+plt.axis('off')
+plt.show()
 
+# Word Cloud for comments of March-23
+df_sample_comments_march23 = df_comments_march23.sample(200)
+comments_text_march23 = df_sample_comments_march23.str.cat()
+comments_text_march23 = comments_text_march23.replace("<br/>", "")
+
+wcloud_march23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_march23)
+
+# Plot the word cloud
+plt.figure(figsize=(10, 5))
+plt.imshow(wcloud_march23)
+plt.axis('off')
+plt.show()
+
+# Word Cloud for comments of September-23
+df_sample_comments_sept23 = df_comments_sept23.sample(200)
+comments_text_sept23 = df_sample_comments_sept23.str.cat()
+comments_text_sept23 = comments_text_sept23.replace("<br/>", "")
+
+wcloud_sept23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_sept23)
+
+# Plot the word cloud
+plt.figure(figsize=(10, 5))
+plt.imshow(wcloud_sept23)
+plt.axis('off')
+plt.show()
