@@ -3,6 +3,8 @@ import sys
 import matplotlib.pyplot as plt
 import folium
 import wordcloud
+from collections import Counter
+import numpy as np
 
 # Load csv's and add a column 'month'
 df_listings_june23 = pd.read_csv("data/2023/june/listings.csv")
@@ -39,11 +41,12 @@ df_sept23 = df_listings_sept23[[
     'room_type', 'property_type', 'price', 'availability_365', 'minimum_nights', 'month'
 ]]
 
+# Create an one-column dataframe for comments of 2023
 df_comments_june23 = df_reviews_june23['comments']
 df_comments_march23 = df_reviews_march23['comments']
 df_comments_sept23 = df_reviews_sept23['comments']
 
-# df_comments_23 = pd.concat([df_comments_june23, df_comments_march23, df_comments_sept23])
+df_comments_23 = pd.concat([df_comments_june23, df_comments_march23, df_comments_sept23])
 
 # Concatenate DataFrames of each month to one
 df_23 = pd.concat([df_june23, df_march23, df_sept23])
@@ -67,7 +70,7 @@ for col in numerical_columns:
 # for col in text_columns:
 #     df_23[col] = df_23[col].fillna(value='unknown')
 # or
-# df_23.dropna()
+df_23.dropna(inplace=True, ignore_index=True)
 
 # Replace all extreme values from column 'minimum_nights'
 df_23.loc[df_23['minimum_nights'] > 365, 'minimum_nights'] = df_23['minimum_nights'].median()
@@ -192,41 +195,108 @@ total_price_roomtypes = roomtype_prices_df.groupby('room_type').sum().reset_inde
 
 ##### 1.10 ######
 
-# Word Cloud for comments of June-23
-df_sample_comments_june23 = df_comments_june23.sample(200)
-comments_text_june23 = df_sample_comments_june23.str.cat()
-comments_text_june23 = comments_text_june23.replace("<br/>", "")
+# Word Cloud for comments of 2023
+df_sample_comments_23 = df_comments_23.sample(200)
+comments_text_23 = df_sample_comments_23.str.cat()
+comments_text_23 = comments_text_23.replace("<br/>", "")
 
-wcloud_june23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_june23)
-
-# Plot the word cloud
-plt.figure(figsize=(10, 5))
-plt.imshow(wcloud_june23)
-plt.axis('off')
-plt.show()
-
-# Word Cloud for comments of March-23
-df_sample_comments_march23 = df_comments_march23.sample(200)
-comments_text_march23 = df_sample_comments_march23.str.cat()
-comments_text_march23 = comments_text_march23.replace("<br/>", "")
-
-wcloud_march23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_march23)
+wcloud_comments_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_23)
 
 # Plot the word cloud
-plt.figure(figsize=(10, 5))
-plt.imshow(wcloud_march23)
-plt.axis('off')
-plt.show()
+# plt.figure(figsize=(10, 5))
+# plt.imshow(wcloud_comments_23)
+# plt.axis('off')
+# plt.show()
 
-# Word Cloud for comments of September-23
-df_sample_comments_sept23 = df_comments_sept23.sample(200)
-comments_text_sept23 = df_sample_comments_sept23.str.cat()
-comments_text_sept23 = comments_text_sept23.replace("<br/>", "")
 
-wcloud_sept23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_sept23)
+# TODO: Each row has to be treated as a word for neighbourhoodse
+df_neighbourhoods_23 = df_23['neighbourhood_cleansed'].str.replace(' ', '-')
+df_neighbourhoods_sample_23 = df_neighbourhoods_23.sample(200)
+neighbourhoods_text_23 = df_neighbourhoods_sample_23.str.cat(sep=' ')
 
-# Plot the word cloud
-plt.figure(figsize=(10, 5))
-plt.imshow(wcloud_sept23)
-plt.axis('off')
-plt.show()
+wcloud_neighbourhood_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(neighbourhoods_text_23)
+
+# # Plot the word cloud
+# plt.figure(figsize=(10, 5))
+# plt.imshow(wcloud_neighbourhood_23)
+# plt.axis('off')
+# plt.show()
+
+# Keep descriptions by replacing html code
+df_descriptions_23 = df_23['description'].str.replace('<b>', '').str.replace('<br />', '').str.replace('<b>', '').str.replace('</b>', '')
+df_descriptions_sample_23 = df_descriptions_23.sample(200)
+descriptions_text_23 = df_descriptions_sample_23.str.cat(sep=' ')
+
+wcloud_description_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(descriptions_text_23)
+
+# plt.figure(figsize=(10, 5))
+# plt.imshow(wcloud_description_23)
+# plt.axis('off')
+# plt.show()
+
+##### 1.11 #####
+# Convert amenities' column from sets of strings to lists of strings
+df_amenities_23 = df_23['amenities'].str.replace(", ", ',').str.replace('"', '').str.replace('[', '').str.replace(']', '').str.split(',')
+# Explode each list of amenities in order to keep unique amenities
+df_unique_amenities_23 = df_amenities_23.explode().unique()
+
+# Create a counter that counts unique words in order to see the most common amenities
+amenity_frequency_counter = Counter()
+
+for string in list(df_unique_amenities_23):
+    words = string.split()
+    amenity_frequency_counter.update(words)
+
+# Extract most common and print to see it
+most_common = dict(amenity_frequency_counter.most_common())
+# print(most_common)
+
+# Create a dictionary manually of common keywords for each category of amenities
+categories = {'kitchen' : ['stove', 'steel', 'stainless', 'oven', 'refrigerator', 'kitchen', 'induction', 'olive', 'coffee', 'maker', 'rice', 'bbq'],
+              'facilities' : ['parking', 'garage', 'building', 'premises', 'elevator', 'bedroom', 'bedrooms', 'bathroom', 'bathrooms', 'private', 'public', 'balcony', 'chair'],
+              'electricity and technology' : ['dishwasher', 'microwave', 'ethernet', 'connection','hdtv', 'mbps', 'electric', 'wifi', 'fast', 'system', 'sound', 'tv', 'bluetooth', 'cable',
+                                              'aux', 'netflix', 'bosch', 'chromecast', 'amazon', 'prime', 'video', 'disney+', 'pitsos', 'apple',
+                                              'siemens', 'cd', 'dvd', 'lg', 'pitsos', 'bosch', 'morris', 'samsung', 'zanussi', 'game'],
+              'security' : ['lock', 'alarm', 'fire', 'kit', 'security', 'cameras', 'emergency', 'escape', 'safe', 'pets', 'allowed'],
+              'services' : ['service', 'heating', 'hot', 'water', 'linens', 'breakfast', 'dry', 'cleaning', 'laundry', 'pickup', 'rental', 'check-in', 'self', 'book', 'books'],
+              'toiletries' : ['soap', 'body', 'hair', 'shampoo', 'conditioner', 'closet', 'miele', 'papoutsanis', 'shampoo', 'korres', 'pantene', 'shower', 'marseillais', 'le petite']
+            }
+
+# Method to find the category of an amenity
+def find_category(amenity):
+    for category, keywords in categories.items():
+        for word in amenity.split():
+            if word.lower() in keywords:
+                return category
+    return 'Other'
+
+# Method that returns a list of corresponding categories from a list of amenities
+def get_categorized_amenities(amenities):
+    categorized_amenities = list()
+    for amenity in amenities:
+        categorized_amenities.append(find_category(amenity))
+    
+    return categorized_amenities
+
+# Categorize the whole column
+categorized_amenities = list()
+for i in range(df_amenities_23.size):
+    categorized_amenities.append(get_categorized_amenities(df_amenities_23.iloc[i]))
+
+# After that, create a dataframe and concatenate it with the official dataframe for 2023
+df_categorized_amenities = pd.DataFrame({'categorized_amenities' : categorized_amenities})
+
+df_augmented_23 = pd.concat([df_23, df_categorized_amenities], axis=1)
+
+df_categories_freq = df_categorized_amenities.explode('categorized_amenities').value_counts().reset_index()
+
+# Histogram to show the frequencies of amenity's category
+# plot_1_11 = df_categories_freq.plot(kind='bar', x='categorized_amenities', y='count', color='tab:olive', figsize=(17, 6))
+# plot_1_11.set_xlabel('Categories', fontweight='bold')
+# plot_1_11.set_ylabel('Count', fontweight='bold')
+# plot_1_11.set_title('Amenity\'s Categories Distribution')
+# plot_1_11.tick_params(axis='x', rotation=0)
+# plot_1_11.set_yticks([])
+# plot_1_11.set_yticklabels([])
+# plot_1_11.bar_label(plot_1_11.containers[0], fmt='%d')
+# plt.show()
