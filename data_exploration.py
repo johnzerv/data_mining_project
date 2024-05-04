@@ -20,14 +20,14 @@ df_reviews_sept23 = pd.read_csv("data/2023/september/reviews.csv")
 
 # Take all columns from official DataFrame that we're interested to
 df_june23 = df_listings_june23[[
-    'id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
+    'id', 'host_id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
     'latitude', 'longitude', 'last_review', 'instant_bookable', 'host_since', 'host_response_rate',
     'host_has_profile_pic', 'first_review', 'description', 'accommodates', 'bathrooms_text', 'amenities', 
     'room_type', 'property_type', 'price', 'availability_365', 'minimum_nights', 'month'
 ]]
 
 df_march23 = df_listings_march23[[
-    'id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
+    'id', 'host_id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
     'latitude', 'longitude', 'last_review', 'instant_bookable', 'host_since', 'host_response_rate',
     'host_has_profile_pic', 'first_review', 'description', 'accommodates', 'bathrooms_text', 'amenities', 
     'room_type', 'property_type', 'price', 'availability_365', 'minimum_nights', 'month'
@@ -35,7 +35,7 @@ df_march23 = df_listings_march23[[
 
 
 df_sept23 = df_listings_sept23[[
-    'id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
+    'id', 'host_id', 'bedrooms', 'beds', 'review_scores_rating', 'number_of_reviews', 'neighbourhood_cleansed', 'name',
     'latitude', 'longitude', 'last_review', 'instant_bookable', 'host_since', 'host_response_rate',
     'host_has_profile_pic', 'first_review', 'description', 'accommodates', 'bathrooms_text', 'amenities', 
     'room_type', 'property_type', 'price', 'availability_365', 'minimum_nights', 'month'
@@ -51,8 +51,6 @@ df_comments_23 = pd.concat([df_comments_june23, df_comments_march23, df_comments
 # Concatenate DataFrames of each month to one
 df_23 = pd.concat([df_june23, df_march23, df_sept23])
 
-
-
 # Clean the column 'price'
 df_23['price'] = df_23['price'].str.replace('.00', '').str.replace(',', '').str.replace('$', '').astype(float)
 
@@ -61,7 +59,7 @@ numerical_columns = df_23.select_dtypes(include='number').columns
 for col in numerical_columns:
     mean = df_23[col].mean()
     df_23[col] = df_23[col].fillna(value=mean)
-
+df_23['bedrooms'] = df_23['bedrooms'].astype(int)
 
 
 # TODO: Decide what to do with NaN text
@@ -72,8 +70,18 @@ for col in numerical_columns:
 # or
 df_23.dropna(inplace=True, ignore_index=True)
 
-# Replace all extreme values from column 'minimum_nights'
+# Replace all extreme values from column 'minimum_nights' and 'price'
 df_23.loc[df_23['minimum_nights'] > 365, 'minimum_nights'] = df_23['minimum_nights'].median()
+
+# Track Outliers and filtered them out for price and bedrooms column
+df_temp_price = df_23.copy()
+df_temp_price['x-Mean'] = abs(df_temp_price['price'] - df_temp_price['price'].mean())
+df_temp_price['1.96*std'] = 1.96*df_temp_price['price'].std()  
+df_23['Outlier'] = abs(df_temp_price['price'] - df_temp_price['price'].mean()) > 1.96*df_temp_price['price'].std()
+df_23.loc[df_23['Outlier'] == True, 'price'] = df_temp_price['1.96*std']
+
+df_23 = df_23[df_23['Outlier'] == False]
+df_23.drop(columns=['Outlier'], inplace=True) # Remove 'Outlier' column
 
 # Export dataframe to .csv file
 # df_23.to_csv('train_2023.csv', index=False)
@@ -151,7 +159,6 @@ grouped_and_evaluated = neighbourhoods_roomtype_df.groupby('neighbourhood_cleans
 # Reset indexing and drop duplicates for each neighbourhood while keeping the first roomtype
 top_roomtype_df = grouped_and_evaluated.reset_index().drop_duplicates(subset="neighbourhood_cleansed")
 
-# print(top_roomtype_df)
 
 # plot_1_7 = top_roomtype_df.sort_values(by='count', ascending=False).plot(kind='barh', x='neighbourhood_cleansed', y='count', color='skyblue', figsize=(100, 10))
 # plot_1_7.set_xlabel('Count')
@@ -300,3 +307,89 @@ df_categories_freq = df_categorized_amenities.explode('categorized_amenities').v
 # plot_1_11.set_yticklabels([])
 # plot_1_11.bar_label(plot_1_11.containers[0], fmt='%d')
 # plt.show()
+
+##### 1.12 #####
+df_neighbourhoods_price_bedrooms_23 = df_23[['neighbourhood_cleansed', 'price', 'bedrooms']]
+df_neighbourhoods_price_two_bedrooms_23 = df_neighbourhoods_price_bedrooms_23[df_neighbourhoods_price_bedrooms_23['bedrooms'] == 2]
+df_neighbourhoods_price_with_two_bedrooms_23 = df_neighbourhoods_price_two_bedrooms_23[['neighbourhood_cleansed', 'price']]
+
+df_mean_of_neighbourhoods = df_neighbourhoods_price_with_two_bedrooms_23.groupby('neighbourhood_cleansed')['price'].mean().reset_index()
+
+df_mean_of_neighbourhoods_sorted = df_mean_of_neighbourhoods.sort_values(by=['price'], ascending=False)
+
+# plot_1_12a = df_mean_of_neighbourhoods_sorted.plot(kind='barh', x='neighbourhood_cleansed', y='price', figsize=(15,15), width=0.8)
+# plot_1_12a.set_xlabel('Price', fontweight='bold')
+# plot_1_12a.set_ylabel('Neighbourhoods', fontweight='bold')
+# plot_1_12a.set_title('Average Price by Neighbourhood for 2-bedroom Apartments')
+# plt.show()
+
+max_mean_price = df_mean_of_neighbourhoods_sorted['price'].max()
+interval_sep = max_mean_price/3
+
+price_intervals = [0, interval_sep, interval_sep * 2, max_mean_price+1]
+price_labels = ['cheap', 'mid', 'expensive']
+
+df_mean_of_neighbourhoods['price_rank'] = pd.cut(df_mean_of_neighbourhoods['price'], bins=price_intervals, labels=price_labels, right=False)
+
+df_rank_counts = df_mean_of_neighbourhoods['price_rank'].value_counts()
+
+# Plot pie chart for price rank distribution
+# plot_1_12b = df_rank_counts.plot(kind='pie', labels=df_rank_counts.index, autopct='%.1f%%', startangle=140, figsize=(8, 8))
+# plot_1_12b.set_ylabel('')  # Remove y-axis label
+# plot_1_12b.set_title('Distribution of Price Ranks')
+# plt.show()
+
+##### 1.13 #####
+# 1. Frequency of number of bedrooms
+df_bedrooms_23 = df_23['bedrooms'].value_counts().reset_index()
+
+# plot_1_13a = df_bedrooms_23.plot(kind='bar', x='bedrooms', y='count', color='tab:blue', figsize=(8, 6))
+# plot_1_13a.set_xlabel('Number of Bedrooms', fontweight='bold')
+# plot_1_13a.set_ylabel('Total Count', fontweight='bold')
+# plot_1_13a.set_title('Number of Bedrooms Distribution')
+# plot_1_13a.tick_params(axis='x', rotation=0)
+# plot_1_13a.bar_label(plot_1_13a.containers[0], fmt='%d')
+# plt.show()
+
+# 2. Five rarest property types
+df_property_type = df_23['property_type'].value_counts().reset_index().sort_values(by='count', ascending=True).reset_index(drop=True).head(5)
+
+# plot_1_13b = df_property_type.plot(kind='barh', x='property_type', y='count', figsize=(10,6), width=0.8)
+# plot_1_13b.set_xlabel('Property Type', fontweight='bold')
+# plot_1_13b.set_ylabel('Count', fontweight='bold')
+# plot_1_13b.set_title('Property Type\'s Counts')
+# plot_1_13b.bar_label(plot_1_13b.containers[0], fmt='%d')
+# plt.show()
+
+# 3. Distribution of Instant Bookable Values for Listings with the Most Common Number of Bathrooms
+df_most_common_no_bathrooms = df_23['bathrooms_text'].value_counts().reset_index().sort_values(by='count', ascending=False).head(1)
+most_common_no_bathrooms = df_most_common_no_bathrooms.iat[0,0]
+
+df_only_most_common_no_bathrooms = df_23[df_23['bathrooms_text'] == most_common_no_bathrooms]
+df_ibookable_with_most_common_no_bathrooms = df_only_most_common_no_bathrooms['instant_bookable'].value_counts().reset_index()
+
+# plot_1_13c = df_ibookable_with_most_common_no_bathrooms.plot(kind='pie', y='count', labels=None, autopct='%.1f%%', startangle=140, figsize=(10, 10))
+# plot_1_13c.set_ylabel('')  # Remove y-axis label
+# plot_1_13c.set_title('Distribution of Instant Bookable Values for Listings with the Most Common Number of Bathrooms')
+# plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
+# plot_1_13c.legend(df_ibookable_with_most_common_no_bathrooms['instant_bookable'], loc='lower right')  # Add legend with room types
+# plt.show()
+
+
+##### 1.14 ######
+df_host_ids = df_23['host_id'].value_counts().head(10).reset_index()
+
+df_host_ids = df_host_ids.rename(columns={'count': 'num_host_listings'})
+# print(df_host_ids)
+
+# plot_1_14 = df_host_ids.plot(kind='bar', x='host_id', y='num_host_listings', color='skyblue', figsize=(13, 6))
+# plot_1_14.set_xlabel('Host ID', fontweight='bold')
+# plot_1_14.set_ylabel('Number of Host Listings', fontweight='bold')
+# plot_1_14.set_title('Top 10 Hosts with the most number of listings')
+# plot_1_14.tick_params(axis='x', rotation=0)
+# plot_1_14.bar_label(plot_1_14.containers[0], fmt='%d')
+# plt.show()
+
+
+
+
