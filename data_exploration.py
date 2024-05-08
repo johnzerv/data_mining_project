@@ -2,9 +2,20 @@ import pandas as pd
 import sys
 import matplotlib.pyplot as plt
 import folium
-import wordcloud
+import wordcloud as wc
+from wordcloud import STOPWORDS
 from collections import Counter
 import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+# from nltk.collocations import BigramCollocationFinder
+# from nltk.metrics import BigramAssocMeasures
+# from nltk.corpus import stopwords
+import nltk 
+from nltk.collocations import *
+
+
+
 
 # Load csv's and add a column 'month'
 df_listings_june23 = pd.read_csv("data/2023/june/listings.csv")
@@ -207,7 +218,7 @@ df_sample_comments_23 = df_comments_23.sample(200)
 comments_text_23 = df_sample_comments_23.str.cat()
 comments_text_23 = comments_text_23.replace("<br/>", "")
 
-wcloud_comments_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(comments_text_23)
+wcloud_comments_23 = wc.WordCloud(width=800, height=400, background_color='white', normalize_plurals=False).generate(comments_text_23)
 
 # Plot the word cloud
 # plt.figure(figsize=(10, 5))
@@ -221,7 +232,7 @@ df_neighbourhoods_23 = df_23['neighbourhood_cleansed'].str.replace(' ', '-')
 df_neighbourhoods_sample_23 = df_neighbourhoods_23.sample(200)
 neighbourhoods_text_23 = df_neighbourhoods_sample_23.str.cat(sep=' ')
 
-wcloud_neighbourhood_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(neighbourhoods_text_23)
+wcloud_neighbourhood_23 = wc.WordCloud(width=800, height=400, background_color='white', normalize_plurals=False).generate(neighbourhoods_text_23)
 
 # # Plot the word cloud
 # plt.figure(figsize=(10, 5))
@@ -230,11 +241,12 @@ wcloud_neighbourhood_23 = wordcloud.WordCloud(width=800, height=400, background_
 # plt.show()
 
 # Keep descriptions by replacing html code
-df_descriptions_23 = df_23['description'].str.replace('<b>', '').str.replace('<br />', '').str.replace('<b>', '').str.replace('</b>', '')
-df_descriptions_sample_23 = df_descriptions_23.sample(200)
-descriptions_text_23 = df_descriptions_sample_23.str.cat(sep=' ')
+df_descriptions_23 = df_23['description'].str.replace("<br />", '').str.replace("<b>", '').str.replace("</b>", '').str.replace(',', ' ').str.replace('.', ' ')
+df_descriptions_sample_23 = df_descriptions_23.sample(1000)
+# descriptions_text_23 = df_descriptions_sample_23.str.cat(sep=' ')
+descriptions_text_23 = " ".join(description for description in df_descriptions_sample_23)
 
-wcloud_description_23 = wordcloud.WordCloud(width=800, height=400, background_color='white').generate(descriptions_text_23)
+wcloud_description_23 = wc.WordCloud(width=800, height=400, background_color='white', normalize_plurals=False).generate(descriptions_text_23)
 
 # plt.figure(figsize=(10, 5))
 # plt.imshow(wcloud_description_23)
@@ -380,7 +392,7 @@ df_ibookable_with_most_common_no_bathrooms = df_only_most_common_no_bathrooms['i
 df_host_ids = df_23['host_id'].value_counts().head(10).reset_index()
 
 df_host_ids = df_host_ids.rename(columns={'count': 'num_host_listings'})
-# print(df_host_ids)
+# print(df_host_ids)m
 
 # plot_1_14 = df_host_ids.plot(kind='bar', x='host_id', y='num_host_listings', color='skyblue', figsize=(13, 6))
 # plot_1_14.set_xlabel('Host ID', fontweight='bold')
@@ -390,6 +402,82 @@ df_host_ids = df_host_ids.rename(columns={'count': 'num_host_listings'})
 # plot_1_14.bar_label(plot_1_14.containers[0], fmt='%d')
 # plt.show()
 
+########## Recommendation System ##########
+##### 2.1 #####
+df = df_23[['id', 'name', 'description']].copy()
+df['description'] = df['description'].str.replace('<b>', '').str.replace('</b>', '').str.replace('<br />', '')
 
+df['name_description'] = df['name'] + ' ' + df['description']
 
+# Create TF-IDF matrix
+tfidf_vectorizer = TfidfVectorizer(stop_words='english')
 
+tfidf_matrix = tfidf_vectorizer.fit_transform(df['name_description'])
+
+##### 2.2 #####
+# Calculate similarity between all names-descriptions
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+# Create a dictionary with all cosine similarities with key --> (row, column) for upper triangle because the matrix is symmetrical
+similar_indicies_dict = {}
+for i in range(0, len(cosine_sim)):
+    for j in range(i+1, len(cosine_sim)):
+        similar_indicies_dict[(i, j)] = cosine_sim[i, j]
+
+# Sort dictionary by value
+sorted_dict_list = sorted(similar_indicies_dict.items(), key=lambda x: x[1], reverse=True)
+
+# Keep first 100 most similar elements
+first_100_list = sorted_dict_list[:2]
+similar_dict = {}
+for ((row1, row2), score) in first_100_list:
+    similar_dict[(df['id'].iloc[row1], df['id'].iloc[row2])] = score
+
+##### 2.3 #####
+# Create Series to store indices of 'id' column
+indices = pd.Series(df.index, index=df['id'])
+
+# Recommendation System Method
+def get_recommendations(id, N, cos_sim=cosine_sim):
+    index = indices[id]
+    cos_sims = list(enumerate(cos_sim[index]))
+    cos_sims = sorted(cos_sims, key=lambda x: x[1], reverse=True)
+    cos_sims = cos_sims[1:N+1] #index 0 is the inputted series itself
+    movie_indices = [i[0] for i in cos_sims]
+    recommendations_indices = df['id'].iloc[movie_indices]
+
+    print("Recommending", id, "listings similar to Studio")
+    print("---------------------------------------------------------")
+    i = 0
+    for rec in recommendations_indices:
+        name = df.loc[df['id'] == rec, 'name'].iloc[0]
+        description = df.loc[df['id'] == rec, 'description'].iloc[0]
+        print("Recommended:", name)
+        print("Description:", description)
+        (_, score) = cos_sims[i]
+        print("(score:", score,")\n")
+        i += 1
+
+# get_recommendations(10595, 5)
+
+##### 2.4 #####
+# Take description from original dataframe and replace numbers
+description_text = df_23['description'].copy().str.replace(r'\d+', '', regex=True).str.cat(sep=' ').replace("<br />", ' ').replace("</b>", ' ').replace("<b>", ' ')
+
+# Replace also some symbols with space string
+symbols_to_replace_with_space = "\\!\"-:/%+&\'*@_(),."
+
+for symbol in symbols_to_replace_with_space:
+    description_text = description_text.replace(symbol, ' ')
+
+# Tokenize the text
+tokens = description_text.split()
+
+# Find Collocations
+finder = BigramCollocationFinder.from_words(tokens)
+
+# Take Bigram Measures in order to extract 10 best collocations
+bigram_measures = nltk.collocations.BigramAssocMeasures()
+
+for tupple in finder.nbest(bigram_measures.pmi, 10):
+    print(tupple)
