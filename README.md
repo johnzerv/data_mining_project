@@ -30,7 +30,12 @@ At the end of first part, collocations of column description are computed.
 ### Second Part (Study Over Time, Sentimental Analysis, Metrics)
 In this last part, firstly a sentimental analysis using a Hugging Face's model is done afer loading and cleaning data.
 After that, two new sets are created in order to train the big set and test the other one trying to redo sentimental analysis
-using sklearn algorithms as SVM, Random Forest and KNN. At the end, three functions are written for accordingly computing three metrics.
+using sklearn algorithms as SVM, Random Forest and KNN. At the end, three functions are written for accordingly computing three metrics :
+
+![screenshot](metrics/(a).png)
+![screenshot](metrics/(b).png)
+![screenshot](metrics/(c).png)
+
 
 
 
